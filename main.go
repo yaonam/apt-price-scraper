@@ -2,7 +2,6 @@ package main
 
 import (
 	"encoding/json"
-	"fmt"
 	"io"
 	"log"
 	"net/http"
@@ -13,6 +12,7 @@ import (
 	"golang.org/x/net/html"
 )
 
+// Edit these vars as necessary -----------------------------------------------------
 var MoveInDate time.Time = time.Date(2023, time.July, 1, 0, 0, 0, 0, time.Local)
 var leftLimit = time.Date(2023, time.June, 1, 0, 0, 0, 0, time.Local)
 var july = time.Date(2023, time.July, 10, 0, 0, 0, 0, time.Local)
@@ -33,6 +33,8 @@ type Apartment struct {
 	Quote        string    `json:"quote"`
 }
 
+type Apartments []Apartment
+
 func main() {
 	// Get all available apts
 	availableUnitsData := url.Values{
@@ -50,7 +52,7 @@ func main() {
 		log.Println(readErr)
 	}
 	resp.Body.Close()
-	var allApartments []Apartment
+	var allApartments Apartments
 	jsonErr := json.Unmarshal(body, &allApartments)
 	if jsonErr != nil {
 		log.Fatal(jsonErr)
@@ -58,7 +60,7 @@ func main() {
 	log.Printf("Fetched %v apartments", len(allApartments))
 
 	// Filter by studio
-	var studioApartments []Apartment
+	var studioApartments Apartments
 	for _, apartment := range allApartments {
 		if apartment.Bedroom == "Studio" {
 			studioApartments = append(studioApartments, apartment)
@@ -66,7 +68,7 @@ func main() {
 	}
 	log.Printf("Filtered %v studio apartments", len(studioApartments))
 	// Filter by move-in date
-	var juneJulyStudioApts []Apartment
+	var juneJulyStudioApts Apartments
 	for _, apartment := range studioApartments {
 		availability := apartment.Availability
 		if availability.After(leftLimit) && availability.Before(july) {
@@ -76,7 +78,7 @@ func main() {
 	log.Printf("Filtered %v apartments by move-in date", len(juneJulyStudioApts))
 
 	// Calculate pricing (best?), html tokenizer
-	juneJulyStudioApts[0].populateQuote(MoveInDate)
+	juneJulyStudioApts.populateQuote(MoveInDate)
 
 	// Show pricing (ordered?)
 	prettyApts, prettyErr := json.MarshalIndent(juneJulyStudioApts, "", "  ")
@@ -86,29 +88,32 @@ func main() {
 	log.Print(string(prettyApts))
 }
 
-func (apartment *Apartment) populateQuote(moveInDate time.Time) {
-	// Get price matrix
-	req, _ := http.NewRequest("GET", PricingMatrixURL, nil)
-	req.URL.RawQuery = url.Values{
-		"contentclass":      {"pricingmatrix"},
-		"UnitId":            {"30653186"},
-		"UnitAvailableDate": {"5/11/2023"},
-	}.Encode()
-	req.Header.Set("X-Requested-With", "XMLHttpRequest")
-	resp, respErr := http.DefaultClient.Do(req)
-	if respErr != nil {
-		log.Fatal(respErr)
+func (apartments *Apartments) populateQuote(moveInDate time.Time) {
+	for i, apartment := range *apartments {
+		// Get price matrix
+		req, _ := http.NewRequest("GET", PricingMatrixURL, nil)
+		req.URL.RawQuery = url.Values{
+			"contentclass":      {"pricingmatrix"},
+			"UnitId":            {apartment.IDValue},
+			"UnitAvailableDate": {"7/1/2023"},
+		}.Encode()
+		req.Header.Set("X-Requested-With", "XMLHttpRequest")
+		resp, respErr := http.DefaultClient.Do(req)
+		if respErr != nil {
+			log.Fatal(respErr)
+		}
+		tokenizer := html.NewTokenizer(resp.Body)
+		defer resp.Body.Close()
+		// log.Print(string(body))
+		bestQuote := apartment.getBestQuote(tokenizer)
+		log.Printf("Best quote for unit %v: %v", apartment.Unit, bestQuote)
+		(*apartments)[i].Quote = bestQuote
 	}
-	tokenizer := html.NewTokenizer(resp.Body)
-	defer resp.Body.Close()
-	// log.Print(string(body))
-	log.Printf("Best quote for unit %v: %v", apartment.Unit, apartment.getBestQuote(tokenizer))
 }
 
 func (apartment *Apartment) getBestQuote(tokenizer *html.Tokenizer) string {
-	quotes := make([]string, 4)
-	// minRentAdjusted := apartment.MinRent
-	quotes[3] = "$" + fmt.Sprint(apartment.MinRent) + ".00"
+	// TODO check early cancel pricing
+	quotes := make([]string, 3)
 	for i, rowName := range []string{"Pricerow0", "Pricerow1", "Pricerow2"} {
 		quotes[i] = getRowFirstQuote(tokenizer, rowName)
 	}
