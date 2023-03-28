@@ -55,15 +55,29 @@ func main() {
 	}
 	resp.Body.Close()
 	var allApartments Apartments
-	jsonErr := json.Unmarshal(body, &allApartments)
-	if jsonErr != nil {
+	if jsonErr := json.Unmarshal(body, &allApartments); jsonErr != nil {
 		log.Fatal(jsonErr)
 	}
 	log.Printf("Fetched %v apartments", len(allApartments))
 
+	// Filter by studio and move-in date
+	filteredAparments := allApartments.filter()
+
+	// Calculate pricing (best?), html tokenizer
+	filteredAparments.populateQuote(MoveInDate)
+
+	// Show pricing (ordered?)
+	prettyApts, prettyErr := json.MarshalIndent(filteredAparments, "", "  ")
+	if prettyErr != nil {
+		log.Fatal(prettyErr)
+	}
+	log.Print(string(prettyApts))
+}
+
+func (apartments *Apartments) filter() Apartments {
 	// Filter by studio
 	var studioApartments Apartments
-	for _, apartment := range allApartments {
+	for _, apartment := range *apartments {
 		if apartment.Bedroom == "Studio" {
 			studioApartments = append(studioApartments, apartment)
 		}
@@ -78,16 +92,7 @@ func main() {
 		}
 	}
 	log.Printf("Filtered %v apartments by move-in date", len(juneJulyStudioApts))
-
-	// Calculate pricing (best?), html tokenizer
-	juneJulyStudioApts.populateQuote(MoveInDate)
-
-	// Show pricing (ordered?)
-	prettyApts, prettyErr := json.MarshalIndent(juneJulyStudioApts, "", "  ")
-	if prettyErr != nil {
-		log.Fatal(prettyErr)
-	}
-	log.Print(string(prettyApts))
+	return juneJulyStudioApts
 }
 
 func (apartments *Apartments) populateQuote(moveInDate time.Time) {
@@ -158,19 +163,13 @@ func getRowFirstQuote(tokenizer *html.Tokenizer, rowName string) string {
 					if tokenType == html.ErrorToken {
 						break
 					}
-					tagname, _ := tokenizer.TagName()
-					if string(tagname) == "label" {
-						tokenType := tokenizer.Next() // Get label text
-						if tokenType == html.StartTagToken {
-							// Skip bold tag
-							tokenizer.Next()
-						}
-						newQuote := string(tokenizer.Text())
+					text := tokenizer.Text()
+					if tokenType == html.TextToken && text[0] == '$' {
+						newQuote := string(text)
 						// log.Printf("%v: %v", rowName, newQuote)
 						return newQuote
 					}
 				}
-				break
 			}
 		}
 	}
