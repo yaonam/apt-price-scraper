@@ -15,9 +15,11 @@ import (
 )
 
 // Edit these vars as necessary -----------------------------------------------------
-var MoveInDate time.Time = time.Date(2023, time.July, 1, 0, 0, 0, 0, time.Local)
-var leftLimit = time.Date(2023, time.June, 1, 0, 0, 0, 0, time.Local)
-var rightLimit = time.Date(2023, time.July, 10, 0, 0, 0, 0, time.Local)
+var UnitAvailableDate = "7/1/2023"
+var LeftLimit = time.Date(2023, time.June, 1, 0, 0, 0, 0, time.Local)
+var RightLimit = time.Date(2023, time.July, 10, 0, 0, 0, 0, time.Local)
+var MaxLeaseDuration = 3 // 5+x months
+// ---------------------------------------------------------------------------------
 
 const AvailableUnitsURL string = "https://protokendallsq.com/floorplans/"
 const PricingMatrixURL string = "https://protokendallsq.securecafe.com/rcloadcontent.ashx"
@@ -64,7 +66,7 @@ func main() {
 	filteredAparments := allApartments.filter()
 
 	// Calculate pricing (best?), html tokenizer
-	filteredAparments.populateQuote(MoveInDate)
+	filteredAparments.populateQuote()
 
 	// Show pricing (ordered?)
 	prettyApts, prettyErr := json.MarshalIndent(filteredAparments, "", "  ")
@@ -87,7 +89,7 @@ func (apartments *Apartments) filter() Apartments {
 	var juneJulyStudioApts Apartments
 	for _, apartment := range studioApartments {
 		availability := apartment.Availability
-		if availability.After(leftLimit) && availability.Before(rightLimit) {
+		if availability.After(LeftLimit) && availability.Before(RightLimit) {
 			juneJulyStudioApts = append(juneJulyStudioApts, apartment)
 		}
 	}
@@ -95,14 +97,14 @@ func (apartments *Apartments) filter() Apartments {
 	return juneJulyStudioApts
 }
 
-func (apartments *Apartments) populateQuote(moveInDate time.Time) {
+func (apartments *Apartments) populateQuote() {
 	for i, apartment := range *apartments {
 		// Get price matrix
 		req, _ := http.NewRequest("GET", PricingMatrixURL, nil)
 		req.URL.RawQuery = url.Values{
 			"contentclass":      {"pricingmatrix"},
 			"UnitId":            {apartment.IDValue},
-			"UnitAvailableDate": {"7/1/2023"},
+			"UnitAvailableDate": {UnitAvailableDate},
 		}.Encode()
 		req.Header.Set("X-Requested-With", "XMLHttpRequest")
 		resp, respErr := http.DefaultClient.Do(req)
@@ -132,8 +134,8 @@ func (apartment *Apartment) getBestQuote(tokenizer *html.Tokenizer) float64 {
 	bestQuote := quotes[0]
 	for i := 0; i < len(quotes); i++ {
 		quote := quotes[i]
-		// Lease duration of 6-8 months
-		if i < 3 && quote < bestQuote {
+		// Lease duration of < (5+x) months
+		if i < MaxLeaseDuration && quote < bestQuote {
 			bestQuote = quote
 		}
 		// Early move-out, assume after 6 months
@@ -146,32 +148,32 @@ func (apartment *Apartment) getBestQuote(tokenizer *html.Tokenizer) float64 {
 }
 
 func getRowFirstQuote(tokenizer *html.Tokenizer, rowName string) string {
+	// Skip to row in price matrix
 	for {
 		tokenType := tokenizer.Next()
 		if tokenType == html.ErrorToken {
 			log.Print("Error!")
-			break
+			return ""
 		}
-
-		// Look for start tags
 		if tokenType == html.StartTagToken {
 			_, val, _ := tokenizer.TagAttr()
-			// See if id matches row name
 			if string(val) == rowName {
-				for {
-					tokenType := tokenizer.Next()
-					if tokenType == html.ErrorToken {
-						break
-					}
-					text := tokenizer.Text()
-					if tokenType == html.TextToken && text[0] == '$' {
-						newQuote := string(text)
-						// log.Printf("%v: %v", rowName, newQuote)
-						return newQuote
-					}
-				}
+				break
 			}
 		}
 	}
-	return ""
+	// Find first quote
+	for {
+		tokenType := tokenizer.Next()
+		if tokenType == html.ErrorToken {
+			log.Print("Error!")
+			return ""
+		}
+		text := tokenizer.Text()
+		if tokenType == html.TextToken && text[0] == '$' {
+			newQuote := string(text)
+			// log.Printf("%v: %v", rowName, newQuote)
+			return newQuote
+		}
+	}
 }
