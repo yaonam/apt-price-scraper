@@ -115,6 +115,7 @@ func (apartments *Apartments) populateQuote() {
 		defer resp.Body.Close()
 		// log.Print(string(body))
 		bestQuote := apartment.getBestQuote(tokenizer)
+		resp.Body.Close()
 		// log.Printf("Best quote for unit %v: %v", apartment.Unit, bestQuote)
 		(*apartments)[i].Quote = bestQuote
 	}
