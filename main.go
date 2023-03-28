@@ -121,7 +121,6 @@ func (apartments *Apartments) populateQuote() {
 }
 
 func (apartment *Apartment) getBestQuote(tokenizer *html.Tokenizer) float64 {
-	// TODO check early cancel pricing
 	quotes := make([]float64, 13)
 	for i := range quotes {
 		rowName := "Pricerow" + fmt.Sprint(i)
