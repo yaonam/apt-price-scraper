@@ -88,12 +88,6 @@ func main() {
 		log.Fatal(prettyErr)
 	}
 	log.Print(string(prettyApts))
-
-	bleh := "$5,123.00"
-	bleh = strings.Replace(bleh, "$", "", -1)
-	bleh = strings.Replace(bleh, ",", "", -1)
-	log.Print(bleh)
-	log.Print(strconv.ParseFloat(bleh, 64))
 }
 
 func (apartments *Apartments) populateQuote(moveInDate time.Time) {
