@@ -2,10 +2,12 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"io"
 	"log"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 	"time"
 
@@ -15,7 +17,7 @@ import (
 // Edit these vars as necessary -----------------------------------------------------
 var MoveInDate time.Time = time.Date(2023, time.July, 1, 0, 0, 0, 0, time.Local)
 var leftLimit = time.Date(2023, time.June, 1, 0, 0, 0, 0, time.Local)
-var july = time.Date(2023, time.July, 10, 0, 0, 0, 0, time.Local)
+var rightLimit = time.Date(2023, time.July, 10, 0, 0, 0, 0, time.Local)
 
 const AvailableUnitsURL string = "https://protokendallsq.com/floorplans/"
 const PricingMatrixURL string = "https://protokendallsq.securecafe.com/rcloadcontent.ashx"
@@ -30,7 +32,7 @@ type Apartment struct {
 	MaxRent      uint      `json:"max_rent"`
 	Availability time.Time `json:"availability"`
 	Floor        string    `json:"floor"`
-	Quote        string    `json:"quote"`
+	Quote        float64   `json:"quote"`
 }
 
 type Apartments []Apartment
@@ -71,7 +73,7 @@ func main() {
 	var juneJulyStudioApts Apartments
 	for _, apartment := range studioApartments {
 		availability := apartment.Availability
-		if availability.After(leftLimit) && availability.Before(july) {
+		if availability.After(leftLimit) && availability.Before(rightLimit) {
 			juneJulyStudioApts = append(juneJulyStudioApts, apartment)
 		}
 	}
@@ -86,6 +88,12 @@ func main() {
 		log.Fatal(prettyErr)
 	}
 	log.Print(string(prettyApts))
+
+	bleh := "$5,123.00"
+	bleh = strings.Replace(bleh, "$", "", -1)
+	bleh = strings.Replace(bleh, ",", "", -1)
+	log.Print(bleh)
+	log.Print(strconv.ParseFloat(bleh, 64))
 }
 
 func (apartments *Apartments) populateQuote(moveInDate time.Time) {
@@ -106,22 +114,33 @@ func (apartments *Apartments) populateQuote(moveInDate time.Time) {
 		defer resp.Body.Close()
 		// log.Print(string(body))
 		bestQuote := apartment.getBestQuote(tokenizer)
-		log.Printf("Best quote for unit %v: %v", apartment.Unit, bestQuote)
+		// log.Printf("Best quote for unit %v: %v", apartment.Unit, bestQuote)
 		(*apartments)[i].Quote = bestQuote
 	}
 }
 
-func (apartment *Apartment) getBestQuote(tokenizer *html.Tokenizer) string {
+func (apartment *Apartment) getBestQuote(tokenizer *html.Tokenizer) float64 {
 	// TODO check early cancel pricing
-	quotes := make([]string, 3)
-	for i, rowName := range []string{"Pricerow0", "Pricerow1", "Pricerow2"} {
-		quotes[i] = getRowFirstQuote(tokenizer, rowName)
+	quotes := make([]float64, 13)
+	for i := range quotes {
+		rowName := "Pricerow" + fmt.Sprint(i)
+		rawQuote := getRowFirstQuote(tokenizer, rowName)
+		rawQuote = strings.Replace(rawQuote, "$", "", -1)
+		rawQuote = strings.Replace(rawQuote, ",", "", -1)
+		quotes[i], _ = strconv.ParseFloat(rawQuote, 64)
 	}
 
 	bestQuote := quotes[0]
-	for _, quote := range quotes {
-		if quote < bestQuote {
+	for i := 0; i < len(quotes); i++ {
+		quote := quotes[i]
+		// Lease duration of 6-8 months
+		if i < 3 && quote < bestQuote {
 			bestQuote = quote
+		}
+		// Early move-out, assume after 6 months
+		earlyMoveOutQuote := quote * 7 / 6
+		if earlyMoveOutQuote < bestQuote {
+			bestQuote = earlyMoveOutQuote
 		}
 	}
 	return bestQuote
@@ -147,9 +166,13 @@ func getRowFirstQuote(tokenizer *html.Tokenizer, rowName string) string {
 					}
 					tagname, _ := tokenizer.TagName()
 					if string(tagname) == "label" {
-						tokenizer.Next() // Get label text
+						tokenType := tokenizer.Next() // Get label text
+						if tokenType == html.StartTagToken {
+							// Skip bold tag
+							tokenizer.Next()
+						}
 						newQuote := string(tokenizer.Text())
-						log.Printf("%v: %v", rowName, newQuote)
+						// log.Printf("%v: %v", rowName, newQuote)
 						return newQuote
 					}
 				}
