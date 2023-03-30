@@ -15,7 +15,6 @@ import (
 )
 
 // Edit these vars as necessary -----------------------------------------------------
-var UnitAvailableDate = "7/1/2023"
 var LeftLimit = time.Date(2023, time.June, 1, 0, 0, 0, 0, time.Local)
 var RightLimit = time.Date(2023, time.July, 10, 0, 0, 0, 0, time.Local)
 var MaxLeaseDuration = 3 // 5+x months
@@ -104,7 +103,7 @@ func (apartments *Apartments) populateQuote() {
 		req.URL.RawQuery = url.Values{
 			"contentclass":      {"pricingmatrix"},
 			"UnitId":            {apartment.IDValue},
-			"UnitAvailableDate": {UnitAvailableDate},
+			"UnitAvailableDate": {apartment.Availability.Format("01/02/2006")},
 		}.Encode()
 		req.Header.Set("X-Requested-With", "XMLHttpRequest")
 		resp, respErr := http.DefaultClient.Do(req)
@@ -139,7 +138,7 @@ func (apartment *Apartment) getBestQuote(tokenizer *html.Tokenizer) float64 {
 			bestQuote = quote
 		}
 		// Early move-out, assume after 6 months
-		earlyMoveOutQuote := quote * 7 / 6
+		earlyMoveOutQuote := quote * 8 / 7
 		if earlyMoveOutQuote < bestQuote {
 			bestQuote = earlyMoveOutQuote
 		}
