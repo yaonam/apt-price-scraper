@@ -2,26 +2,29 @@
 
 ## Overview
 
-This package makes it easier to check the latest apartment pricing from Proto Kendall Square.
+This package makes it easier to check the latest apartment pricing from Proto Kendall Square. Sends messages to Discord channel whenever prices are updated and prints to log.
+
+## Installation
+
+Git clone: https://github.com/yaonam/apt-price-scraper.git
+(Use vim to create env var)
+
+vim: https://www.cyberciti.biz/faq/vim-new-file-creation-command-on-linux-unix/
+
+Docker: https://docs.docker.com/engine/install/ubuntu/#install-using-the-repository
+
+Go: https://go.dev/doc/install
 
 ## Run
+
+### Locally
 
 ```
 cp .env.example .env // Make sure to fill out env file
 go run .
 ```
 
-## Server
-Move `server.service` file to /etc/systemd/system/
-```
-sudo systemctl start server
-```
-
-## Docker
-
-https://docs.docker.com/language/golang/build-images/
-
-### Docker Compose
+### Server - Docker Compose
 ```
 // Start
 docker-compose up --build -d
@@ -31,7 +34,7 @@ docker-compose stop
 docker-compose down
 ```
 
-### Docker Build
+### Server - Docker Build
 ```
 // Build the image
 docker build --tag scraper
@@ -52,5 +55,14 @@ docker ps
 docker rmi <image name>
 
 // Remove containers
-docker rm <container name>
+docker rm <container id>
+
+// Check logs
+docker logs <container id>
 ```
+
+## Develop
+
+### Docker
+
+https://docs.docker.com/language/golang/build-images/
