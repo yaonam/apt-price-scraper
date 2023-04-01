@@ -85,8 +85,8 @@ func main() {
 	// Webhook stuff
 	godotenv.Load()
 	var WebhookURL string = os.Getenv("WEBHOOK_URL")
-
-	discordMessage, _ := json.Marshal(DiscordMessage{Content: string(prettyApts), UserName: "Apt Price Scraper"})
+	content := "```json\n" + string(prettyApts) + "\n```"
+	discordMessage, _ := json.Marshal(DiscordMessage{Content: content, UserName: "Apt Price Scraper"})
 	webhookReq, _ := http.NewRequest("POST", WebhookURL, bytes.NewBuffer(discordMessage))
 	webhookReq.Header.Set("Content-Type", "application/json")
 	_, webhookErr := http.DefaultClient.Do(webhookReq)
