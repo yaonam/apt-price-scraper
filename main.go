@@ -1,16 +1,19 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
 	"log"
 	"net/http"
 	"net/url"
+	"os"
 	"strconv"
 	"strings"
 	"time"
 
+	"github.com/joho/godotenv"
 	"golang.org/x/net/html"
 )
 
@@ -37,6 +40,11 @@ type Apartment struct {
 }
 
 type Apartments []Apartment
+
+type DiscordMessage struct {
+	Content  string `json:"content"`
+	UserName string `json:"username"`
+}
 
 func main() {
 	// Get all available apts
@@ -73,6 +81,18 @@ func main() {
 		log.Fatal(prettyErr)
 	}
 	log.Print(string(prettyApts))
+
+	// Webhook stuff
+	godotenv.Load()
+	var WebhookURL string = os.Getenv("WEBHOOK_URL")
+
+	discordMessage, _ := json.Marshal(DiscordMessage{Content: string(prettyApts), UserName: "Apt Price Scraper"})
+	webhookReq, _ := http.NewRequest("POST", WebhookURL, bytes.NewBuffer(discordMessage))
+	webhookReq.Header.Set("Content-Type", "application/json")
+	_, webhookErr := http.DefaultClient.Do(webhookReq)
+	if webhookErr != nil {
+		log.Fatal(webhookErr)
+	}
 }
 
 func (apartments *Apartments) filter() Apartments {
