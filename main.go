@@ -21,6 +21,8 @@ import (
 var LeftLimit = time.Date(2023, time.June, 1, 0, 0, 0, 0, time.Local)
 var RightLimit = time.Date(2023, time.July, 10, 0, 0, 0, 0, time.Local)
 var MaxLeaseDuration = 3 // 5+x months
+var RunInterval = time.Hour
+
 // ---------------------------------------------------------------------------------
 
 const AvailableUnitsURL string = "https://protokendallsq.com/floorplans/"
@@ -47,7 +49,42 @@ type DiscordMessage struct {
 }
 
 func main() {
-	// Get all available apts
+	// Env vars
+	godotenv.Load()
+	var WebhookURL string = os.Getenv("WEBHOOK_URL")
+
+	var latestApts string
+
+	// Loop every {RunInterval}
+	for {
+		// Get all available apts
+		allApartments := getAllApartments()
+
+		// Filter by studio and move-in date
+		filteredAparments := allApartments.filter()
+
+		// Calculate pricing (best?), html tokenizer
+		filteredAparments.populateQuote()
+
+		// Show pricing (ordered?)
+		prettyApts, prettyErr := json.MarshalIndent(filteredAparments, "", "  ")
+		if prettyErr != nil {
+			log.Fatal(prettyErr)
+		}
+		prettyAptsStr := string(prettyApts)
+
+		// If apts updated
+		if prettyAptsStr != latestApts {
+			log.Print(prettyAptsStr)
+			sendDiscordMessage(WebhookURL, prettyAptsStr)
+			latestApts = prettyAptsStr
+		}
+
+		time.Sleep(RunInterval)
+	}
+}
+
+func getAllApartments() Apartments {
 	availableUnitsData := url.Values{
 		"action": {"available-units"},
 	}
@@ -68,31 +105,7 @@ func main() {
 		log.Fatal(jsonErr)
 	}
 	log.Printf("Fetched %v apartments", len(allApartments))
-
-	// Filter by studio and move-in date
-	filteredAparments := allApartments.filter()
-
-	// Calculate pricing (best?), html tokenizer
-	filteredAparments.populateQuote()
-
-	// Show pricing (ordered?)
-	prettyApts, prettyErr := json.MarshalIndent(filteredAparments, "", "  ")
-	if prettyErr != nil {
-		log.Fatal(prettyErr)
-	}
-	log.Print(string(prettyApts))
-
-	// Webhook stuff
-	godotenv.Load()
-	var WebhookURL string = os.Getenv("WEBHOOK_URL")
-	content := "```json\n" + string(prettyApts) + "\n```"
-	discordMessage, _ := json.Marshal(DiscordMessage{Content: content, UserName: "Apt Price Scraper"})
-	webhookReq, _ := http.NewRequest("POST", WebhookURL, bytes.NewBuffer(discordMessage))
-	webhookReq.Header.Set("Content-Type", "application/json")
-	_, webhookErr := http.DefaultClient.Do(webhookReq)
-	if webhookErr != nil {
-		log.Fatal(webhookErr)
-	}
+	return allApartments
 }
 
 func (apartments *Apartments) filter() Apartments {
@@ -192,5 +205,16 @@ func getRowFirstQuote(tokenizer *html.Tokenizer, rowName string) string {
 			// log.Printf("%v: %v", rowName, newQuote)
 			return newQuote
 		}
+	}
+}
+
+func sendDiscordMessage(webhookURL string, prettyApts string) {
+	content := "```json\n" + prettyApts + "\n```"
+	discordMessage, _ := json.Marshal(DiscordMessage{Content: content, UserName: "Apt Price Scraper"})
+	webhookReq, _ := http.NewRequest("POST", webhookURL, bytes.NewBuffer(discordMessage))
+	webhookReq.Header.Set("Content-Type", "application/json")
+	_, webhookErr := http.DefaultClient.Do(webhookReq)
+	if webhookErr != nil {
+		log.Fatal(webhookErr)
 	}
 }
