@@ -7,5 +7,12 @@ This package makes it easier to check the latest apartment pricing from Proto Ke
 ## Run
 
 ```
+cp .env.example .env // Make sure to fill out env file
 go run .
+```
+
+## Server
+Move `server.service` file to /etc/systemd/system/
+```
+sudo systemctl start server
 ```
