@@ -21,7 +21,7 @@ import (
 var LeftLimit = time.Date(2023, time.June, 1, 0, 0, 0, 0, time.Local)
 var RightLimit = time.Date(2023, time.July, 10, 0, 0, 0, 0, time.Local)
 var MaxLeaseDuration = 3 // 5+x months
-var RunInterval = time.Hour
+var RunInterval = 30 * time.Minute
 
 // ---------------------------------------------------------------------------------
 
@@ -29,7 +29,6 @@ const AvailableUnitsURL string = "https://protokendallsq.com/floorplans/"
 const PricingMatrixURL string = "https://protokendallsq.securecafe.com/rcloadcontent.ashx"
 
 type Apartment struct {
-	ID           string    `json:"id"`
 	Unit         string    `json:"unit"`
 	IDValue      string    `json:"id_value"`
 	Bedroom      string    `json:"bedroom"`
