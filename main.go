@@ -21,7 +21,7 @@ import (
 var LeftLimit = time.Date(2023, time.June, 1, 0, 0, 0, 0, time.Local)
 var RightLimit = time.Date(2023, time.July, 10, 0, 0, 0, 0, time.Local)
 var MaxLeaseDuration = 3 // 5+x months
-var RunInterval = 30 * time.Minute
+var RunInterval = time.Hour
 
 // ---------------------------------------------------------------------------------
 
