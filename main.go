@@ -56,6 +56,18 @@ func main() {
 
 	// Loop every {RunInterval}
 	for {
+		// Check if should sleep
+		now := time.Now()
+		if now.Hour() < 9 {
+			hours := 9 - now.Hour()
+			sleepDuration := time.Duration(hours) * time.Hour
+			time.Sleep(sleepDuration)
+		} else if now.Hour() > 17 {
+			hours := 23 - now.Hour() + 9
+			sleepDuration := time.Duration(hours) * time.Hour
+			time.Sleep(sleepDuration)
+		}
+
 		// Get all available apts
 		allApartments := getAllApartments()
 
