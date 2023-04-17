@@ -21,7 +21,7 @@ import (
 var LeftLimit = time.Date(2023, time.June, 1, 0, 0, 0, 0, time.Local)
 var RightLimit = time.Date(2023, time.July, 10, 0, 0, 0, 0, time.Local)
 var MaxLeaseDuration = 3 // 5+x months
-var RunInterval = 30 * time.Minute
+var RunInterval = time.Hour
 
 // ---------------------------------------------------------------------------------
 
@@ -77,6 +77,11 @@ func main() {
 			log.Print(prettyAptsStr)
 			sendDiscordMessage(WebhookURL, prettyAptsStr)
 			latestApts = prettyAptsStr
+
+			// If none are zero, pause for 5 * RunInterval
+			if anyZero(&filteredAparments) {
+				time.Sleep(5 * RunInterval)
+			}
 		}
 
 		time.Sleep(RunInterval)
@@ -205,6 +210,15 @@ func getRowFirstQuote(tokenizer *html.Tokenizer, rowName string) string {
 			return newQuote
 		}
 	}
+}
+
+func anyZero(a *Apartments) bool {
+	for _, apart := range *a {
+		if apart.Quote == 0 {
+			return true
+		}
+	}
+	return false
 }
 
 func sendDiscordMessage(webhookURL string, prettyApts string) {
