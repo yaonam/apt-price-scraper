@@ -58,12 +58,12 @@ func main() {
 	for {
 		// Check if should sleep
 		now := time.Now()
-		if now.Hour() < 9 {
-			hours := 9 - now.Hour()
+		if now.Hour() < 13 {
+			hours := 13 - now.Hour()
 			sleepDuration := time.Duration(hours) * time.Hour
 			time.Sleep(sleepDuration)
-		} else if now.Hour() > 17 {
-			hours := 23 - now.Hour() + 9
+		} else if now.Hour() > 21 {
+			hours := 23 - now.Hour() + 13
 			sleepDuration := time.Duration(hours) * time.Hour
 			time.Sleep(sleepDuration)
 		}
@@ -91,7 +91,7 @@ func main() {
 			latestApts = prettyAptsStr
 
 			// If none are zero, pause for 5 * RunInterval
-			if anyZero(&filteredAparments) {
+			if !anyZero(&filteredAparments) {
 				time.Sleep(5 * RunInterval)
 			}
 		}
